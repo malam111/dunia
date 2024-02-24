@@ -34,6 +34,19 @@ func (self *CountryInfo) Serialize() string {
 		self.TLD)
 }
 
+func (self *CountryInfo) IntoArray() []string {
+	return []string {
+		self.Name, 
+		self.Capital, 
+		strings.Join(self.OfficialLanguages, ";"), 
+		strconv.Itoa(self.Area), 
+		strconv.Itoa(self.Population),
+		self.Currency, 
+		self.DrivingSide, 
+		strconv.Itoa(self.CallingCode), 
+		self.TLD}
+}
+
 type CountryInfoBuilder struct {
 	src string
 	NameExtractor *InfoName
@@ -129,6 +142,9 @@ func NewInfoName() *InfoName {
 
 func (self *InfoName) GetInfo(src string) string {
 	temp := self.regexes.FindString(src)
+	if temp == "" {
+		return ""
+	}
 	temp = temp[14:len(temp)-6]
 	return temp
 }
@@ -146,6 +162,9 @@ func NewInfoCapital() *InfoCapital {
 
 func (self *InfoCapital) GetInfo(src string) string {
 	temp := self.regexes[0].FindIndex([]byte(src))
+	if temp == nil {
+		return ""
+	}
 	capital := self.regexes[1].FindString(src[temp[0]:temp[1]])
 	return capital[7:]
 }
@@ -158,7 +177,7 @@ func NewInfoLang() *InfoLang {
 	return &InfoLang {
 		regexes: []*regexp.Regexp {
 			// get this area
-			regexp.MustCompile(`Official.{0,10}languages.*Ethnic groups`),
+			regexp.MustCompile(`Official.{0,10}languages.*Ethnic.{0,10}groups`),
 			// get every one of these
 			regexp.MustCompile(`title="[\w ]+`)}}
 			// remove extras
@@ -166,7 +185,13 @@ func NewInfoLang() *InfoLang {
 
 func (self *InfoLang) GetInfo(src string) string {
 	temp := self.regexes[0].FindIndex([]byte(src))
+	if temp == nil {
+		return ""
+	}
 	titles := self.regexes[1].FindAllString(src[temp[0]:temp[1]], -1)
+	if titles == nil {
+		return ""
+	}
 	langs := ""
 	last := len(titles)
 	for idx, lang := range(titles) {
@@ -193,6 +218,9 @@ func NewInfoArea() *InfoArea {
 
 func (self *InfoArea) GetInfo(src string) int {
 	temp := self.regexes[0].FindIndex([]byte(src))
+	if temp == nil {
+		return -1
+	}
 	str_area := self.regexes[1].FindString(src[temp[0]:temp[1]])
 	nocom := self.regexes[2].ReplaceAll([]byte(str_area), []byte(""))
 	area := self.regexes[3].FindString(string(nocom))
@@ -217,6 +245,9 @@ func NewInfoPop() *InfoPop {
 
 func (self *InfoPop) GetInfo(src string) int {
 	temp := self.regexes[0].FindIndex([]byte(src))
+	if temp == nil {
+		return -1
+	}
 	pop_raw := self.regexes[1].FindString(src[temp[0]:temp[1]])
 	pop := self.regexes[2].ReplaceAll([]byte(pop_raw), []byte(""))
 	ret, err := strconv.Atoi(string(pop))
@@ -239,6 +270,9 @@ func NewInfoCur() *InfoCur {
 
 func (self *InfoCur) GetInfo(src string) string {
 	temp := self.regexes[0].FindIndex([]byte(src))
+	if temp == nil {
+		return ""
+	}
 	curr := self.regexes[1].FindString(src[temp[0]:temp[1]])
 	return curr[7:]
 }
@@ -256,6 +290,9 @@ func NewInfoDriv() *InfoDriv {
 
 func (self *InfoDriv) GetInfo(src string) string {
 	temp := self.regexes[0].FindIndex([]byte(src))
+	if temp == nil {
+		return ""
+	}
 	side := self.regexes[1].FindString(src[temp[0]:temp[1]])
 	return side
 }
@@ -268,13 +305,18 @@ func NewInfoCall() *InfoCall {
 	return &InfoCall {
 		regexes: []*regexp.Regexp {
 			regexp.MustCompile(`Calling.{0,10}code.*3166`),
-			regexp.MustCompile(`\+\d+`)}}
+			regexp.MustCompile(`[\+]\d+`)}}
 }
 
 func (self *InfoCall) GetInfo(src string) int {
 	temp := self.regexes[0].FindIndex([]byte(src))
-	fmt.Print(temp)
+	if temp == nil {
+		return -1
+	}
 	call := self.regexes[1].FindString(src[temp[0]:temp[1]])
+	if call == "" {
+		return -1
+	}
 	ret, err := strconv.Atoi(call[1:])
 	if err != nil {
 		return -1
@@ -295,6 +337,9 @@ func NewInfoTLD() *InfoTLD {
 
 func (self *InfoTLD) GetInfo(src string) string {
 	temp := self.regexes[0].FindIndex([]byte(src))
+	if temp == nil {
+		return ""
+	}
 	tld := self.regexes[1].FindString(src[temp[0]:temp[1]])
 	return tld
 }

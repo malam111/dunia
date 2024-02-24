@@ -1,4 +1,4 @@
-module dunia
+module mulung
 
 go 1.21.3
 
