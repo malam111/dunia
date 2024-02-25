@@ -27,22 +27,22 @@ func scrap_base() {
 	buff, _ := ioutil.ReadAll(resp.Body)
 	var re *regexp.Regexp
 	re = regexp.MustCompile(`[\n\r]`)
-	cleaned := re.ReplaceAll(buff, []byte(" "))
+	cleaned := re.ReplaceAll(buff, []byte(""))
 	os.WriteFile("wiki.html", cleaned, 0755)
 	re = regexp.MustCompile(`mw-content-ltr mw-parser-output.*Disputed countries`)
 	scoped := re.FindString(string(cleaned))
 	re = regexp.MustCompile(`</span><a href="\/wiki\/[A-Za-z_]+`)
 	countries := re.FindAllString(scoped, -1)
-	//log.Print(countries[5][16:])
+	log.Print(countries[len(countries)-1])
 	builders := CountryInfoBuilderNew()
 	csv_out, _ := os.OpenFile("countries.csv", os.O_RDWR | os.O_CREATE, 0666)
 	csv_writer := csv.NewWriter(csv_out)	
-	for idx, link := range countries {
+	for _, link := range countries {
 		source, err := scrap_countries(BASE + link[16:])
 		if err != nil {
 			log.Fatal(err)
 		}
-		if idx == 100 { break }
+		//if idx == 4 { break }
 		country_info, err := builders.Src(source).Build()
 		if err != nil {
 			log.Fatal("nooooo" + source)
@@ -54,6 +54,7 @@ func scrap_base() {
 }
 
 func scrap_countries(link string) (string, error) {
+	re := regexp.MustCompile(`\n`)
 	if client == nil {
 		client = &http.Client{}	
 	}
@@ -65,5 +66,6 @@ func scrap_countries(link string) (string, error) {
 	if err != nil {
 		return "", err	
 	}
-	return string(buff), nil
+	cleaned := re.ReplaceAll(buff, []byte(""))
+	return string(cleaned), nil
 }

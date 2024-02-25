@@ -6,6 +6,8 @@ import (
 	"errors"
 	"strings"
 	"strconv"
+	_ "log"
+	_ "os"
 )
 
 
@@ -136,7 +138,7 @@ type InfoName struct {
 func NewInfoName() *InfoName {
 	return &InfoName {
 		// get this
-		regexes: regexp.MustCompile(`country-name">[\w ]+</div>`)}
+		regexes: regexp.MustCompile(`country-name">[\w ']+<`)}
 		// remove extras
 }
 
@@ -145,7 +147,7 @@ func (self *InfoName) GetInfo(src string) string {
 	if temp == "" {
 		return ""
 	}
-	temp = temp[14:len(temp)-6]
+	temp = temp[14:len(temp)-1]
 	return temp
 }
 
@@ -166,6 +168,9 @@ func (self *InfoCapital) GetInfo(src string) string {
 		return ""
 	}
 	capital := self.regexes[1].FindString(src[temp[0]:temp[1]])
+	if capital == "" {
+		return ""
+	}
 	return capital[7:]
 }
 
@@ -274,6 +279,9 @@ func (self *InfoCur) GetInfo(src string) string {
 		return ""
 	}
 	curr := self.regexes[1].FindString(src[temp[0]:temp[1]])
+	if curr == "" {
+		return ""
+	}
 	return curr[7:]
 }
 
