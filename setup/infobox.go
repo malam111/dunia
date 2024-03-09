@@ -372,5 +372,5 @@ func (self *InfoTLD) GetInfo(src string) string {
 		return "Err"
 	}
 	tld := self.regexes[1].FindString(src[temp[0]:temp[1]])
-	return tld
+	return tld[0:]
 }
