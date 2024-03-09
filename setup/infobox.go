@@ -10,7 +10,6 @@ import (
 	_ "os"
 )
 
-
 type CountryInfo struct {
 	Name string `json:"name"` 
 	Capital string `json:"capital"` 
@@ -65,17 +64,16 @@ type CountryInfoBuilder struct {
 
 func CountryInfoBuilderNew() *CountryInfoBuilder {
 	return &CountryInfoBuilder {
-		src: "",
-		NameExtractor: NewInfoName(),
-		CapitalExtractor: NewInfoCapital(),
-		LangExtractor: NewInfoLang(),
-		AreaExtractor: NewInfoArea(),
-		PopulationExtractor: NewInfoPop(),
-		CurrencyExtractor: NewInfoCur(),
-		DrivingSideExtractor: NewInfoDriv(),
-		CallingCodeExtractor: NewInfoCall(),
-		TLDExtractor: NewInfoTLD(),
-	}
+			src: "",
+			NameExtractor: NewInfoName(),
+			CapitalExtractor: NewInfoCapital(),
+			LangExtractor: NewInfoLang(),
+			AreaExtractor: NewInfoArea(),
+			PopulationExtractor: NewInfoPop(),
+			CurrencyExtractor: NewInfoCur(),
+			DrivingSideExtractor: NewInfoDriv(),
+			CallingCodeExtractor: NewInfoCall(),
+			TLDExtractor: NewInfoTLD(),}
 }
 
 func (self *CountryInfoBuilder) Src(src string) *CountryInfoBuilder {
@@ -145,7 +143,7 @@ func NewInfoName() *InfoName {
 func (self *InfoName) GetInfo(src string) string {
 	temp := self.regexes.FindString(src)
 	if temp == "" {
-		return ""
+		return "Err"
 	}
 	temp = temp[14:len(temp)-1]
 	return temp
@@ -158,18 +156,27 @@ type InfoCapital struct {
 func NewInfoCapital() *InfoCapital {
 	return &InfoCapital {
 		regexes: []*regexp.Regexp {
-			regexp.MustCompile(`Capital.*Official.{0,10}languages`),
+			regexp.MustCompile(`Capital.*language`),
+			regexp.MustCompile(`</tr>`),
 			regexp.MustCompile(`title="[\w-]+`)}}
 }
 
 func (self *InfoCapital) GetInfo(src string) string {
 	temp := self.regexes[0].FindIndex([]byte(src))
 	if temp == nil {
-		return ""
+		return "Err"
 	}
-	capital := self.regexes[1].FindString(src[temp[0]:temp[1]])
+
+	end := self.regexes[1].FindIndex([]byte(src[temp[0]:temp[1]]))
+	if end == nil {
+		return "Err"
+	}
+	//file, _ := os.OpenFile("calling", os.O_CREATE | os.O_RDWR, 0666)
+	//file.Write([]byte(src))
+	//file.Write([]byte(src[temp[0]:temp[0]+end[0]]))
+	capital := self.regexes[2].FindString(src[temp[0]:temp[0]+end[0]])
 	if capital == "" {
-		return ""
+		return "Err"
 	}
 	return capital[7:]
 }
@@ -182,7 +189,8 @@ func NewInfoLang() *InfoLang {
 	return &InfoLang {
 		regexes: []*regexp.Regexp {
 			// get this area
-			regexp.MustCompile(`Official.{0,10}languages.*Ethnic.{0,10}groups`),
+			regexp.MustCompile(`>Official.{0,10}languages?.*Ethnic.{0,10}groups`),
+			regexp.MustCompile(`<tr>`),
 			// get every one of these
 			regexp.MustCompile(`title="[\w ]+`)}}
 			// remove extras
@@ -191,11 +199,15 @@ func NewInfoLang() *InfoLang {
 func (self *InfoLang) GetInfo(src string) string {
 	temp := self.regexes[0].FindIndex([]byte(src))
 	if temp == nil {
-		return ""
+		return "Err"
 	}
-	titles := self.regexes[1].FindAllString(src[temp[0]:temp[1]], -1)
+	end := self.regexes[1].FindIndex([]byte(src[temp[0]:temp[1]]))
+	if end == nil {
+		return "Err"
+	}
+	titles := self.regexes[2].FindAllString(src[temp[0]:(temp[0]+end[0])], -1)
 	if titles == nil {
-		return ""
+		return "Err"
 	}
 	langs := ""
 	last := len(titles)
@@ -276,11 +288,11 @@ func NewInfoCur() *InfoCur {
 func (self *InfoCur) GetInfo(src string) string {
 	temp := self.regexes[0].FindIndex([]byte(src))
 	if temp == nil {
-		return ""
+		return "Err"
 	}
 	curr := self.regexes[1].FindString(src[temp[0]:temp[1]])
 	if curr == "" {
-		return ""
+		return "Err"
 	}
 	return curr[7:]
 }
@@ -299,7 +311,7 @@ func NewInfoDriv() *InfoDriv {
 func (self *InfoDriv) GetInfo(src string) string {
 	temp := self.regexes[0].FindIndex([]byte(src))
 	if temp == nil {
-		return ""
+		return "Err"
 	}
 	side := self.regexes[1].FindString(src[temp[0]:temp[1]])
 	return side
@@ -313,7 +325,9 @@ func NewInfoCall() *InfoCall {
 	return &InfoCall {
 		regexes: []*regexp.Regexp {
 			regexp.MustCompile(`Calling.{0,10}code.*3166`),
-			regexp.MustCompile(`[\+]\d+`)}}
+			regexp.MustCompile(`infobox-data`),
+			regexp.MustCompile(`<tr>`),
+			regexp.MustCompile(`>\+?\d+`)}}
 }
 
 func (self *InfoCall) GetInfo(src string) int {
@@ -321,7 +335,15 @@ func (self *InfoCall) GetInfo(src string) int {
 	if temp == nil {
 		return -1
 	}
-	call := self.regexes[1].FindString(src[temp[0]:temp[1]])
+	start := self.regexes[1].FindIndex([]byte(src[temp[0]:temp[1]]))
+	if start == nil {
+		return -1
+	}
+	end := self.regexes[2].FindIndex([]byte(src[temp[0]:temp[1]]))
+	if end == nil {
+		return -1
+	}
+	call := self.regexes[3].FindString(src[temp[0]+start[0]:temp[0]+end[0]])
 	if call == "" {
 		return -1
 	}
@@ -336,6 +358,7 @@ type InfoTLD struct {
 	regexes []*regexp.Regexp
 }
 
+
 func NewInfoTLD() *InfoTLD {
 	return &InfoTLD {
 		regexes: []*regexp.Regexp {
@@ -346,7 +369,7 @@ func NewInfoTLD() *InfoTLD {
 func (self *InfoTLD) GetInfo(src string) string {
 	temp := self.regexes[0].FindIndex([]byte(src))
 	if temp == nil {
-		return ""
+		return "Err"
 	}
 	tld := self.regexes[1].FindString(src[temp[0]:temp[1]])
 	return tld

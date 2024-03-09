@@ -14,12 +14,13 @@ import (
 const BASE string = "https://simple.wikipedia.org"
 const COUNTRY_LIST string = "/wiki/List_of_countries"
 var client *http.Client
+var thread = 8;
 
 func scrap_base() {
 	client := &http.Client{}	
 	resp, err := client.Get(BASE + COUNTRY_LIST)
 	if err != nil {
-		panic("Error")
+		panic(err)
 	}
 	if resp.StatusCode != http.StatusOK {
 		panic(resp.StatusCode)
@@ -34,22 +35,42 @@ func scrap_base() {
 	re = regexp.MustCompile(`</span><a href="\/wiki\/[A-Za-z_]+`)
 	countries := re.FindAllString(scoped, -1)
 	log.Print(countries[len(countries)-1])
-	builders := CountryInfoBuilderNew()
+	builders := make([]*CountryInfoBuilder, thread)
+	for idx := range builders {
+		builders[idx] = CountryInfoBuilderNew()
+	}
+	ins := make(chan string, thread)
+	outs := make(chan []string, thread)
 	csv_out, _ := os.OpenFile("countries.csv", os.O_RDWR | os.O_CREATE, 0666)
 	csv_writer := csv.NewWriter(csv_out)	
-	for _, link := range countries {
-		source, err := scrap_countries(BASE + link[16:])
-		if err != nil {
-			log.Fatal(err)
-		}
-		//if idx == 4 { break }
-		country_info, err := builders.Src(source).Build()
-		if err != nil {
-			log.Fatal("nooooo" + source)
-		}
-		csv_writer.Write(country_info.IntoArray())
+	defer csv_writer.Flush()
+	for idx := 0; idx < thread-1; idx++ {
+		go func() {
+			for {
+				link := <-ins
+				source, err := scrap_countries(BASE + link[16:])
+				if err != nil {
+					log.Fatal(err)
+				}
+				country_info, err := builders[idx].Src(source).Build()
+				if err != nil {
+					log.Fatal("nooooo" + source)
+				}
+				outs <- country_info.IntoArray()		
+			}
+		}()
 	}
-	csv_writer.Flush()
+	go func() {
+		for {
+			writer := <- outs
+			csv_writer.Write(writer)
+		}
+	}()
+	for _, link := range countries {
+		//if idx != 2 { continue }
+		//if idx == 22 { break }
+		ins <- link
+	}
 
 }
 
